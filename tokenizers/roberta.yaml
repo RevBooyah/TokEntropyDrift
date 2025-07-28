@@ -1,0 +1,10 @@
+name: roberta-base
+type: bpe
+backend: transformers
+parameters:
+  model: roberta-base
+  python_path: python3
+  tokenizer_type: bpe
+description: RoBERTa tokenizer using HuggingFace transformers
+requirements:
+  - Python 3.7+ with transformers package 

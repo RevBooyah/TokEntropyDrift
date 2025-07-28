@@ -1,0 +1,11 @@
+name: openai-api
+type: bpe
+backend: api
+parameters:
+  model: gpt-3.5-turbo
+  api_key: ${OPENAI_API_KEY}
+  api_base: https://api.openai.com/v1
+description: OpenAI API tokenizer (requires API key)
+requirements:
+  - OpenAI API key
+  - Internet connection 

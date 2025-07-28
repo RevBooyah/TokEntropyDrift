@@ -1,0 +1,10 @@
+Our backend is built with Python using Django framework and PostgreSQL database.
+The frontend uses React with TypeScript and Material-UI components.
+We deploy using Docker containers orchestrated by Kubernetes on AWS.
+The API is RESTful with GraphQL endpoints for complex queries.
+Authentication is handled by OAuth2 with JWT tokens.
+We use Redis for caching and session management.
+Monitoring is done with Prometheus and Grafana dashboards.
+CI/CD pipeline uses GitHub Actions with automated testing.
+The mobile app is built with React Native for cross-platform support.
+Data processing uses Apache Spark with Python pandas libraries. 

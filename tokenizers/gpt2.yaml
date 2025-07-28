@@ -1,0 +1,9 @@
+name: gpt2
+type: bpe
+backend: tiktoken
+parameters:
+  model: gpt2
+  python_path: python3
+description: GPT-2 tokenizer using tiktoken library
+requirements:
+  - Python 3.7+ with tiktoken package 

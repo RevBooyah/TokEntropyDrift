@@ -1,0 +1,79 @@
+# TokEntropyDrift Configuration File
+# This file configures the behavior of the tokenization analysis tool
+
+input:
+  source_paths: []
+  file_type: "txt"
+
+tokenizers:
+  enabled: ["mock", "gpt2"]
+  configs:
+    mock:
+      type: "custom"
+      parameters:
+        vocab_size: "1000"
+    gpt2:
+      type: "bpe"
+      library_path: "/usr/local/lib/python3.9/site-packages/tiktoken"
+      parameters:
+        model: "gpt2"
+
+analysis:
+  entropy_window_size: 100
+  normalize_entropy: true
+  compression_ratio: true
+  drift_detection: true
+
+# Advanced Features & Optimization
+cache:
+  enabled: true
+  max_size: 10000
+  ttl: "1h"
+  cleanup_interval: "10m"
+  enable_stats: true
+
+parallel:
+  enabled: true
+  max_workers: 0  # 0 means auto-detect (75% of CPU cores)
+  batch_size: 100
+  timeout: "30m"
+  enable_metrics: true
+
+streaming:
+  enabled: true
+  chunk_size: 1000
+  buffer_size: 65536  # 64KB
+  max_memory_mb: 512
+  enable_progress: true
+  progress_interval: 10
+  timeout: "1h"
+
+plugins:
+  enabled: true
+  auto_load: true
+  plugin_directory: "plugins"
+  configs:
+    token_length_analyzer:
+      min_length_threshold: 1
+      max_length_threshold: 100
+
+output:
+  directory: "output"
+  format: "csv"
+  include_logs: true
+  timestamp_dir: true
+
+visualization:
+  theme: "light"
+  image_size: "medium"
+  file_type: "svg"
+  interactive: true
+
+server:
+  port: 8080
+  host: "localhost"
+
+logging:
+  level: "info"
+  format: "json"
+  file: "" 
