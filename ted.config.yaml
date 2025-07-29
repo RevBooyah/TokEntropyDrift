@@ -6,7 +6,7 @@ input:
   file_type: "txt"
 
 tokenizers:
-  enabled: ["mock", "gpt2"]
+  enabled: ["mock", "gpt2", "gpt-3.5-turbo", "gpt-4", "roberta-base", "bert-base", "distilbert-base"]
   configs:
     mock:
       type: "custom"
@@ -14,9 +14,34 @@ tokenizers:
         vocab_size: "1000"
     gpt2:
       type: "bpe"
-      library_path: "/usr/local/lib/python3.9/site-packages/tiktoken"
       parameters:
         model: "gpt2"
+        python_path: "./venv/bin/python"
+    gpt-3.5-turbo:
+      type: "bpe"
+      parameters:
+        model: "gpt-3.5-turbo"
+        python_path: "./venv/bin/python"
+    gpt-4:
+      type: "bpe"
+      parameters:
+        model: "gpt-4"
+        python_path: "./venv/bin/python"
+    roberta-base:
+      type: "bpe"
+      parameters:
+        model: "roberta-base"
+        python_path: "./venv/bin/python"
+    bert-base:
+      type: "wordpiece"
+      parameters:
+        model: "bert-base-uncased"
+        python_path: "./venv/bin/python"
+    distilbert-base:
+      type: "wordpiece"
+      parameters:
+        model: "distilbert-base-uncased"
+        python_path: "./venv/bin/python"
 
 analysis:
   entropy_window_size: 100
@@ -70,7 +95,7 @@ visualization:
   interactive: true
 
 server:
-  port: 8080
+  port: 8081
   host: "localhost"
 
 logging:

@@ -70,6 +70,9 @@ import json
 import sys
 
 try:
+    # Read text from stdin
+    text = sys.stdin.read()
+    
     # Initialize tokenizer
     sp = spm.SentencePieceProcessor()
     sp.load("%s")
@@ -117,7 +120,7 @@ except Exception as e:
 	// Execute Python script
 	cmd := exec.CommandContext(ctx, s.pythonPath, "-c", script)
 	cmd.Stdin = strings.NewReader(text)
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		// Try to get error output
@@ -129,8 +132,8 @@ except Exception as e:
 
 	// Parse JSON output
 	var result struct {
-		Document  string `json:"document"`
-		Tokens    []struct {
+		Document string `json:"document"`
+		Tokens   []struct {
 			ID       int    `json:"id"`
 			Text     string `json:"text"`
 			StartPos int    `json:"start_pos"`
@@ -176,7 +179,7 @@ except Exception as e:
 // TokenizeBatch tokenizes multiple documents
 func (s *SentencePieceTokenizer) TokenizeBatch(ctx context.Context, texts []string) ([]*TokenizationResult, error) {
 	results := make([]*TokenizationResult, len(texts))
-	
+
 	for i, text := range texts {
 		result, err := s.Tokenize(ctx, text)
 		if err != nil {
@@ -184,7 +187,7 @@ func (s *SentencePieceTokenizer) TokenizeBatch(ctx context.Context, texts []stri
 		}
 		results[i] = result
 	}
-	
+
 	return results, nil
 }
 
@@ -253,4 +256,4 @@ func RegisterALBERTTokenizer() error {
 	albertTokenizer.modelPath = "albert-base-v2"
 	albertTokenizer.modelType = "wordpiece"
 	return RegisterGlobal("albert-base", albertTokenizer)
-} 
+}

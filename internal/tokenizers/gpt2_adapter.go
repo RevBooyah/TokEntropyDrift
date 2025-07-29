@@ -11,7 +11,7 @@ import (
 // GPT2Tokenizer implements the Tokenizer interface for GPT-2/GPT-3.5/GPT-4 models
 type GPT2Tokenizer struct {
 	*BaseTokenizer
-	modelName string
+	modelName  string
 	pythonPath string
 }
 
@@ -42,12 +42,12 @@ func (g *GPT2Tokenizer) Initialize(config TokenizerConfig) error {
 
 	// Validate model name
 	validModels := map[string]bool{
-		"gpt2":        true,
-		"gpt2-medium": true,
-		"gpt2-large":  true,
-		"gpt2-xl":     true,
+		"gpt2":          true,
+		"gpt2-medium":   true,
+		"gpt2-large":    true,
+		"gpt2-xl":       true,
 		"gpt-3.5-turbo": true,
-		"gpt-4":       true,
+		"gpt-4":         true,
 	}
 
 	if !validModels[g.modelName] {
@@ -66,6 +66,9 @@ import json
 import sys
 
 try:
+    # Read text from stdin
+    text = sys.stdin.read()
+    
     # Initialize tokenizer
     encoding = tiktoken.encoding_for_model("%s")
     
@@ -104,7 +107,7 @@ except Exception as e:
 	// Execute Python script
 	cmd := exec.CommandContext(ctx, g.pythonPath, "-c", script)
 	cmd.Stdin = strings.NewReader(text)
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		// Try to get error output
@@ -116,8 +119,8 @@ except Exception as e:
 
 	// Parse JSON output
 	var result struct {
-		Document  string `json:"document"`
-		Tokens    []struct {
+		Document string `json:"document"`
+		Tokens   []struct {
 			ID       int    `json:"id"`
 			Text     string `json:"text"`
 			StartPos int    `json:"start_pos"`
@@ -162,7 +165,7 @@ except Exception as e:
 // TokenizeBatch tokenizes multiple documents
 func (g *GPT2Tokenizer) TokenizeBatch(ctx context.Context, texts []string) ([]*TokenizationResult, error) {
 	results := make([]*TokenizationResult, len(texts))
-	
+
 	for i, text := range texts {
 		result, err := g.Tokenize(ctx, text)
 		if err != nil {
@@ -170,7 +173,7 @@ func (g *GPT2Tokenizer) TokenizeBatch(ctx context.Context, texts []string) ([]*T
 		}
 		results[i] = result
 	}
-	
+
 	return results, nil
 }
 
@@ -234,4 +237,4 @@ func RegisterGPT4Tokenizer() error {
 	gpt4Tokenizer := NewGPT2Tokenizer("gpt-4")
 	gpt4Tokenizer.modelName = "gpt-4"
 	return RegisterGlobal("gpt-4", gpt4Tokenizer)
-} 
+}

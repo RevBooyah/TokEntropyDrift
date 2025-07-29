@@ -11,9 +11,9 @@ import (
 // HuggingFaceTokenizer implements the Tokenizer interface for HuggingFace tokenizers
 type HuggingFaceTokenizer struct {
 	*BaseTokenizer
-	modelName   string
-	pythonPath  string
-	modelPath   string
+	modelName     string
+	pythonPath    string
+	modelPath     string
 	tokenizerType string
 }
 
@@ -75,6 +75,9 @@ import json
 import sys
 
 try:
+    # Read text from stdin
+    text = sys.stdin.read()
+    
     # Initialize tokenizer
     if "%s":
         tokenizer = AutoTokenizer.from_pretrained("%s")
@@ -85,14 +88,15 @@ try:
     encoding = tokenizer(text, return_offsets_mapping=True, add_special_tokens=False)
     
     # Extract tokens and positions
-    tokens = encoding.tokens
+    tokens = encoding.tokens()
     offset_mapping = encoding.offset_mapping
+    input_ids = encoding.input_ids
     
     # Create token objects
     token_objects = []
     for i, (token, (start, end)) in enumerate(zip(tokens, offset_mapping)):
         token_objects.append({
-            "id": encoding.ids[i] if i < len(encoding.ids) else 0,
+            "id": input_ids[i] if i < len(input_ids) else 0,
             "text": token,
             "start_pos": start,
             "end_pos": end
@@ -120,7 +124,7 @@ except Exception as e:
 	// Execute Python script
 	cmd := exec.CommandContext(ctx, h.pythonPath, "-c", script)
 	cmd.Stdin = strings.NewReader(text)
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		// Try to get error output
@@ -132,8 +136,8 @@ except Exception as e:
 
 	// Parse JSON output
 	var result struct {
-		Document  string `json:"document"`
-		Tokens    []struct {
+		Document string `json:"document"`
+		Tokens   []struct {
 			ID       int    `json:"id"`
 			Text     string `json:"text"`
 			StartPos int    `json:"start_pos"`
@@ -179,7 +183,7 @@ except Exception as e:
 // TokenizeBatch tokenizes multiple documents
 func (h *HuggingFaceTokenizer) TokenizeBatch(ctx context.Context, texts []string) ([]*TokenizationResult, error) {
 	results := make([]*TokenizationResult, len(texts))
-	
+
 	for i, text := range texts {
 		result, err := h.Tokenize(ctx, text)
 		if err != nil {
@@ -187,7 +191,7 @@ func (h *HuggingFaceTokenizer) TokenizeBatch(ctx context.Context, texts []string
 		}
 		results[i] = result
 	}
-	
+
 	return results, nil
 }
 
@@ -267,4 +271,4 @@ func RegisterDistilBERTTokenizer() error {
 	distilBertTokenizer.modelName = "distilbert-base-uncased"
 	distilBertTokenizer.tokenizerType = "wordpiece"
 	return RegisterGlobal("distilbert-base", distilBertTokenizer)
-} 
+}

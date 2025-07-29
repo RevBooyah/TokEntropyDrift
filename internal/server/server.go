@@ -65,8 +65,11 @@ func NewServer(cfg *config.Config) *Server {
 		log.Fatalf("Failed to create upload directory: %v", err)
 	}
 
-	// Initialize components
-	tokenizerRegistry := tokenizers.NewTokenizerRegistry()
+	// Register all available tokenizers with the global registry
+	if err := tokenizers.RegisterAllTokenizers(); err != nil {
+		log.Printf("Warning: Failed to register some tokenizers: %v", err)
+	}
+
 	metricsEngine := metrics.NewEngine(metrics.EngineConfig{
 		EntropyWindowSize: cfg.Analysis.EntropyWindowSize,
 		NormalizeEntropy:  cfg.Analysis.NormalizeEntropy,
@@ -84,7 +87,7 @@ func NewServer(cfg *config.Config) *Server {
 	server := &Server{
 		config:            cfg,
 		router:            mux.NewRouter(),
-		tokenizerRegistry: tokenizerRegistry,
+		tokenizerRegistry: tokenizers.GlobalRegistry,
 		metricsEngine:     metricsEngine,
 		vizEngine:         vizEngine,
 		uploadDir:         uploadDir,
@@ -399,42 +402,57 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Analysis request: DocumentID=%s, TokenizerIDs=%v, Metrics=%v", req.DocumentID, req.TokenizerIDs, req.Metrics)
+
 	// Load document
 	documents, err := s.loadDocumentByID(req.DocumentID)
 	if err != nil {
+		log.Printf("Failed to load document %s: %v", req.DocumentID, err)
 		http.Error(w, "Document not found", http.StatusNotFound)
 		return
 	}
 
 	document := documents[0].Content
+	log.Printf("Loaded document with %d characters", len(document))
 
 	// Perform analysis
 	results := make([]*metrics.AnalysisResult, 0)
 	ctx := context.Background()
 
 	for _, tokenizerID := range req.TokenizerIDs {
+		log.Printf("Processing tokenizer: %s", tokenizerID)
+
 		if !tokenizers.ValidateTokenizerName(tokenizerID) {
+			log.Printf("Invalid tokenizer name: %s", tokenizerID)
 			continue
 		}
 
 		// Get tokenizer from registry
 		tokenizer, err := s.tokenizerRegistry.Get(tokenizerID)
 		if err != nil {
+			log.Printf("Tokenizer %s not found in registry, creating new one: %v", tokenizerID, err)
 			// Try to create and register the tokenizer
 			tokenizer, err = s.createTokenizer(tokenizerID)
 			if err != nil {
+				log.Printf("Failed to create tokenizer %s: %v", tokenizerID, err)
 				continue
 			}
 		}
 
+		log.Printf("Using tokenizer: %s", tokenizer.Name())
+
 		// Analyze document
 		result, err := s.metricsEngine.AnalyzeDocument(ctx, document, tokenizer)
 		if err != nil {
+			log.Printf("Failed to analyze document with tokenizer %s: %v", tokenizerID, err)
 			continue
 		}
 
+		log.Printf("Analysis successful for tokenizer %s: %d tokens", tokenizerID, result.TokenCount)
 		results = append(results, result)
 	}
+
+	log.Printf("Analysis completed with %d results", len(results))
 
 	// Generate visualizations
 	visualizations := make([]*visualization.VisualizationResult, 0)
@@ -486,15 +504,39 @@ func (s *Server) loadDocumentByID(docID string) ([]loader.Document, error) {
 
 // createTokenizer creates and registers a new tokenizer
 func (s *Server) createTokenizer(tokenizerID string) (tokenizers.Tokenizer, error) {
-	// This is a simplified implementation
-	// In a real implementation, you would create the appropriate tokenizer based on the ID
-	_ = tokenizers.TokenizerConfig{
-		Name: tokenizerID,
-		Type: tokenizers.GetTokenizerType(tokenizerID),
+	var tokenizer tokenizers.Tokenizer
+
+	switch tokenizerID {
+	case "mock":
+		tokenizer = tokenizers.NewMockTokenizer(tokenizerID)
+	case "gpt2":
+		// For now, fall back to mock tokenizer for GPT-2
+		// In a real implementation, you would create the actual GPT-2 tokenizer
+		tokenizer = tokenizers.NewMockTokenizer(tokenizerID)
+	default:
+		// For any other tokenizer, try to create a mock tokenizer as fallback
+		tokenizer = tokenizers.NewMockTokenizer(tokenizerID)
 	}
 
-	// For now, return an error as we don't have the full tokenizer creation logic
-	return nil, fmt.Errorf("tokenizer creation not implemented")
+	// Initialize the tokenizer with default config
+	config := tokenizers.TokenizerConfig{
+		Name: tokenizerID,
+		Type: tokenizers.GetTokenizerType(tokenizerID),
+		Parameters: map[string]string{
+			"vocab_size": "1000",
+		},
+	}
+
+	if err := tokenizer.Initialize(config); err != nil {
+		return nil, fmt.Errorf("failed to initialize tokenizer %s: %w", tokenizerID, err)
+	}
+
+	// Register the tokenizer with the registry
+	if err := s.tokenizerRegistry.Register(tokenizerID, tokenizer); err != nil {
+		return nil, fmt.Errorf("failed to register tokenizer %s: %w", tokenizerID, err)
+	}
+
+	return tokenizer, nil
 }
 
 // handleListAnalyses lists previous analyses

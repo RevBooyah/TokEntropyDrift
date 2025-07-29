@@ -98,8 +98,10 @@ $ docker-compose up
 
 # Or build and run manually
 $ docker build -t tokentropydrift .
-$ docker run -p 8080:8080 -v $(pwd)/examples:/root/examples tokentropydrift serve --host=0.0.0.0 --port=8080
 ```
+
+### Local Development Setup
+For local development or if you prefer not to use Docker, see [`SETUP.md`](./SETUP.md) for detailed instructions on setting up the Python environment and tokenizers.
 
 ### Building from Source
 ```bash

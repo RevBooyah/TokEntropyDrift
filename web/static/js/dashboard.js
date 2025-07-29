@@ -15,8 +15,12 @@ class Dashboard {
         await this.loadSession();
         await this.loadDocuments();
         await this.loadTokenizers();
+        await this.loadAnalysisHistory();
         this.setupEventListeners();
         this.setupWebSocket();
+        
+        // Initialize UI state
+        this.initializeUIState();
     }
 
     async loadSession() {
@@ -143,8 +147,15 @@ class Dashboard {
 
         const selectedTokenizers = this.getSelectedTokenizers();
         if (selectedTokenizers.length === 0) {
-            this.showAlert('Please select at least one tokenizer', 'warning');
-            return;
+            // Try to auto-select mock tokenizer
+            this.ensureTokenizerSelected();
+            const retrySelectedTokenizers = this.getSelectedTokenizers();
+            if (retrySelectedTokenizers.length === 0) {
+                this.showAlert('Please select at least one tokenizer', 'warning');
+                return;
+            } else {
+                this.showAlert('Auto-selected mock tokenizer (works without Python dependencies)', 'info');
+            }
         }
 
         const selectedMetrics = this.getSelectedMetrics();
@@ -172,6 +183,7 @@ class Dashboard {
                 const analysis = await response.json();
                 this.currentAnalysis = analysis;
                 this.renderAnalysisResults(analysis);
+                this.addToAnalysisHistory(analysis);
                 this.showAlert('Analysis completed successfully!', 'success');
             } else {
                 const error = await response.text();
@@ -183,6 +195,67 @@ class Dashboard {
         } finally {
             this.showLoading(false);
         }
+    }
+
+    addToAnalysisHistory(analysis) {
+        const historyContainer = document.getElementById('analysisHistory');
+        
+        // Create history item
+        const historyItem = document.createElement('div');
+        historyItem.className = 'list-group-item list-group-item-action';
+        
+        const documentName = this.documents.find(doc => doc.id === analysis.document_id)?.filename || analysis.document_id;
+        const tokenizerCount = analysis.results.length;
+        
+        historyItem.innerHTML = `
+            <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">${documentName}</h6>
+                <small class="text-muted">${new Date(analysis.timestamp).toLocaleString()}</small>
+            </div>
+            <p class="mb-1">${tokenizerCount} tokenizer(s) analyzed</p>
+            <small class="text-muted">Analysis ID: ${analysis.id}</small>
+        `;
+        
+        // Add click handler to view this analysis
+        historyItem.addEventListener('click', () => {
+            this.currentAnalysis = analysis;
+            this.renderAnalysisResults(analysis);
+        });
+        
+        // Add to the beginning of the history
+        historyContainer.insertBefore(historyItem, historyContainer.firstChild);
+        
+        // Limit history to 10 items
+        const items = historyContainer.querySelectorAll('.list-group-item');
+        if (items.length > 10) {
+            items[items.length - 1].remove();
+        }
+    }
+
+    async loadAnalysisHistory() {
+        try {
+            const response = await fetch('/api/v1/analyses');
+            if (response.ok) {
+                const analyses = await response.json();
+                this.renderAnalysisHistory(analyses);
+            }
+        } catch (error) {
+            console.error('Failed to load analysis history:', error);
+        }
+    }
+
+    renderAnalysisHistory(analyses) {
+        const historyContainer = document.getElementById('analysisHistory');
+        historyContainer.innerHTML = '';
+        
+        if (analyses.length === 0) {
+            historyContainer.innerHTML = '<p class="text-muted text-center">No analysis history available</p>';
+            return;
+        }
+        
+        analyses.forEach(analysis => {
+            this.addToAnalysisHistory(analysis);
+        });
     }
 
     async generateVisualization(type) {
@@ -230,22 +303,45 @@ class Dashboard {
             return;
         }
 
+        // Get currently selected document
+        const selectedDocId = document.getElementById('documentSelect').value;
+
         this.documents.forEach(doc => {
             const item = document.createElement('div');
             item.className = 'document-item';
+            
+            // Add selected class if this document is currently selected
+            if (doc.id === selectedDocId) {
+                item.classList.add('selected');
+            }
+            
             item.innerHTML = `
                 <div class="document-info">
                     <div>
                         <div class="document-name">${doc.filename}</div>
                         <div class="document-meta">
-                            ${this.formatFileSize(doc.size)} • ${doc.lines} lines • ${doc.chars} chars
+                            ${this.formatFileSize(doc.size)} • ${doc.lines || 'N/A'} lines • ${doc.chars || 'N/A'} chars
                         </div>
                     </div>
-                    <button class="btn btn-sm btn-outline-danger" onclick="dashboard.deleteDocument('${doc.id}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    <div class="document-actions">
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="dashboard.selectDocument('${doc.id}')" title="Select document">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="dashboard.deleteDocument('${doc.id}')" title="Delete document">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
             `;
+            
+            // Make the entire item clickable to select the document
+            item.addEventListener('click', (e) => {
+                // Don't trigger if clicking on buttons
+                if (!e.target.closest('.document-actions')) {
+                    this.selectDocument(doc.id);
+                }
+            });
+            
             container.appendChild(item);
         });
     }
@@ -257,8 +353,12 @@ class Dashboard {
         this.tokenizers.forEach(tokenizer => {
             const item = document.createElement('div');
             item.className = 'tokenizer-item';
+            
+            // Auto-select mock tokenizer since it works without Python dependencies
+            const isChecked = tokenizer.id === 'mock' || tokenizer.enabled;
+            
             item.innerHTML = `
-                <input type="checkbox" id="tokenizer_${tokenizer.id}" value="${tokenizer.id}" ${tokenizer.enabled ? 'checked' : ''}>
+                <input type="checkbox" id="tokenizer_${tokenizer.id}" value="${tokenizer.id}" ${isChecked ? 'checked' : ''}>
                 <div class="tokenizer-info">
                     <div class="tokenizer-name">${tokenizer.name}</div>
                     <div class="tokenizer-type">${tokenizer.type}</div>
@@ -266,10 +366,40 @@ class Dashboard {
             `;
             container.appendChild(item);
         });
+        
+        // Ensure at least one tokenizer is selected
+        this.ensureTokenizerSelected();
+    }
+
+    ensureTokenizerSelected() {
+        const checkboxes = document.querySelectorAll('#tokenizerList input[type="checkbox"]:checked');
+        if (checkboxes.length === 0) {
+            // If no tokenizers are selected, select the mock tokenizer
+            const mockCheckbox = document.getElementById('tokenizer_mock');
+            if (mockCheckbox) {
+                mockCheckbox.checked = true;
+            } else {
+                // If mock doesn't exist, select the first available tokenizer
+                const firstCheckbox = document.querySelector('#tokenizerList input[type="checkbox"]');
+                if (firstCheckbox) {
+                    firstCheckbox.checked = true;
+                }
+            }
+        }
     }
 
     renderAnalysisResults(analysis) {
         const container = document.getElementById('analysisResults');
+        
+        if (!analysis || !analysis.results || analysis.results.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted">
+                    <i class="fas fa-chart-line fa-3x mb-3"></i>
+                    <p>No analysis results available</p>
+                </div>
+            `;
+            return;
+        }
         
         let html = `
             <div class="analysis-result">
@@ -281,21 +411,28 @@ class Dashboard {
         `;
 
         analysis.results.forEach(result => {
+            // Get key metrics from the result
+            const tokenCount = result.token_count || 0;
+            const entropy = result.metrics && result.metrics["entropy_global_entropy"] ? 
+                result.metrics["entropy_global_entropy"].value : 0;
+            const compressionRatio = result.metrics && result.metrics["compression_compression_ratio"] ? 
+                result.metrics["compression_compression_ratio"].value : 0;
+            
             html += `
                 <div class="metric-item">
-                    <div class="metric-value">${result.tokenizer_id}</div>
+                    <div class="metric-value">${result.tokenizer_name || 'Unknown'}</div>
                     <div class="metric-label">Tokenizer</div>
                 </div>
                 <div class="metric-item">
-                    <div class="metric-value">${result.token_count}</div>
+                    <div class="metric-value">${tokenCount}</div>
                     <div class="metric-label">Tokens</div>
                 </div>
                 <div class="metric-item">
-                    <div class="metric-value">${result.entropy.toFixed(3)}</div>
+                    <div class="metric-value">${entropy.toFixed(3)}</div>
                     <div class="metric-label">Entropy</div>
                 </div>
                 <div class="metric-item">
-                    <div class="metric-value">${result.compression_ratio.toFixed(3)}</div>
+                    <div class="metric-value">${compressionRatio.toFixed(3)}</div>
                     <div class="metric-label">Compression</div>
                 </div>
             `;
@@ -396,6 +533,42 @@ class Dashboard {
                         <tr><td>Timestamp:</td><td>${new Date(this.currentAnalysis.timestamp).toLocaleString()}</td></tr>
                         <tr><td>Tokenizers:</td><td>${this.currentAnalysis.results.length}</td></tr>
                     </table>
+                    
+                    <h6 class="mt-4">Detailed Results</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Tokenizer</th>
+                                    <th>Tokens</th>
+                                    <th>Entropy</th>
+                                    <th>Compression</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+        `;
+
+        this.currentAnalysis.results.forEach(result => {
+            const tokenCount = result.token_count || 0;
+            const entropy = result.metrics && result.metrics["entropy_global_entropy"] ? 
+                result.metrics["entropy_global_entropy"].value : 0;
+            const compressionRatio = result.metrics && result.metrics["compression_compression_ratio"] ? 
+                result.metrics["compression_compression_ratio"].value : 0;
+            
+            html += `
+                <tr>
+                    <td>${result.tokenizer_name || 'Unknown'}</td>
+                    <td>${tokenCount}</td>
+                    <td>${entropy.toFixed(3)}</td>
+                    <td>${compressionRatio.toFixed(3)}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
                 <div class="col-md-6">
                     <h6>Results Overview</h6>
@@ -414,12 +587,17 @@ class Dashboard {
     generateResultsChart() {
         if (!this.currentAnalysis) return;
 
-        const data = this.currentAnalysis.results.map(result => ({
-            x: [result.tokenizer_id],
-            y: [result.entropy],
-            type: 'bar',
-            name: 'Entropy'
-        }));
+        const data = this.currentAnalysis.results.map(result => {
+            const entropy = result.metrics && result.metrics["entropy_global_entropy"] ? 
+                result.metrics["entropy_global_entropy"].value : 0;
+            
+            return {
+                x: [result.tokenizer_name || 'Unknown'],
+                y: [entropy],
+                type: 'bar',
+                name: 'Entropy'
+            };
+        });
 
         const layout = {
             title: 'Entropy Comparison',
@@ -482,9 +660,65 @@ class Dashboard {
         console.log('WebSocket setup - to be implemented');
     }
 
+    selectDocument(documentId) {
+        // Set the document select dropdown to the selected document
+        const select = document.getElementById('documentSelect');
+        select.value = documentId;
+        
+        // Trigger the change event to update the UI
+        this.onDocumentSelect(documentId);
+        
+        // Re-render the document list to show the selection
+        this.renderDocumentList();
+    }
+
+    initializeUIState() {
+        // Disable the analysis form submit button initially
+        const analysisForm = document.getElementById('analysisForm');
+        const submitButton = analysisForm.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        
+        // Clear any validation classes from the document select
+        const documentSelect = document.getElementById('documentSelect');
+        documentSelect.classList.remove('is-valid', 'is-invalid');
+    }
+
     onDocumentSelect(documentId) {
         // Handle document selection change
         console.log('Document selected:', documentId);
+        
+        // Get the select element
+        const select = document.getElementById('documentSelect');
+        
+        if (documentId) {
+            // Find the selected document
+            const selectedDoc = this.documents.find(doc => doc.id === documentId);
+            
+            if (selectedDoc) {
+                // Show success feedback
+                this.showAlert(`Document "${selectedDoc.filename}" selected successfully!`, 'success');
+                
+                // Enable the analysis form if it was disabled
+                const analysisForm = document.getElementById('analysisForm');
+                const submitButton = analysisForm.querySelector('button[type="submit"]');
+                submitButton.disabled = false;
+                
+                // Update the select element styling to show it's selected
+                select.classList.add('is-valid');
+                select.classList.remove('is-invalid');
+                
+                // Optionally, you could load document details here
+                // this.loadDocumentDetails(documentId);
+            }
+        } else {
+            // No document selected
+            select.classList.remove('is-valid', 'is-invalid');
+            
+            // Disable the analysis form
+            const analysisForm = document.getElementById('analysisForm');
+            const submitButton = analysisForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+        }
     }
 }
 
