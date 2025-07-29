@@ -54,33 +54,33 @@ func (l *Loader) LoadDocuments(filePath string) ([]Document, error) {
 // loadTextFile loads documents from a plain text file
 func (l *Loader) loadTextFile(file *os.File, filePath string) ([]Document, error) {
 	var documents []Document
-	scanner := bufio.NewScanner(file)
-	lineNumber := 0
 
-	for scanner.Scan() {
-		lineNumber++
-		line := strings.TrimSpace(scanner.Text())
-		
-		// Skip empty lines
-		if line == "" {
-			continue
-		}
-
-		doc := Document{
-			Content:    line,
-			LineNumber: lineNumber,
-			FilePath:   filePath,
-			Metadata: map[string]string{
-				"file_type": "text",
-				"file_name": filepath.Base(filePath),
-			},
-		}
-		documents = append(documents, doc)
-	}
-
-	if err := scanner.Err(); err != nil {
+	// Read the entire file content
+	content, err := io.ReadAll(file)
+	if err != nil {
 		return nil, fmt.Errorf("error reading text file: %w", err)
 	}
+
+	// Convert to string and trim any trailing whitespace
+	text := strings.TrimSpace(string(content))
+
+	// Skip empty files
+	if text == "" {
+		return documents, nil
+	}
+
+	// Create a single document for the entire file
+	doc := Document{
+		Content:    text,
+		LineNumber: 1, // Single document, so line number is 1
+		FilePath:   filePath,
+		Metadata: map[string]string{
+			"file_type":   "text",
+			"file_name":   filepath.Base(filePath),
+			"total_lines": fmt.Sprintf("%d", strings.Count(text, "\n")+1),
+		},
+	}
+	documents = append(documents, doc)
 
 	return documents, nil
 }
@@ -94,7 +94,7 @@ func (l *Loader) loadJSONLFile(file *os.File, filePath string) ([]Document, erro
 	for scanner.Scan() {
 		lineNumber++
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		// Skip empty lines
 		if line == "" {
 			continue
@@ -235,4 +235,4 @@ func ValidateFile(filePath string) error {
 	}
 	defer file.Close()
 	return nil
-} 
+}

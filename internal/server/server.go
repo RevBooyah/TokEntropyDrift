@@ -248,13 +248,32 @@ func (s *Server) handleFileUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Calculate file statistics
+	var totalLines, totalChars, whitespaceChars int
+	for _, doc := range documents {
+		// Count lines in this document
+		lines := strings.Count(doc.Content, "\n") + 1
+		totalLines += lines
+
+		// Count characters
+		totalChars += len(doc.Content)
+
+		// Count whitespace characters
+		for _, char := range doc.Content {
+			if char == ' ' || char == '\t' || char == '\n' || char == '\r' {
+				whitespaceChars++
+			}
+		}
+	}
+
 	response := map[string]interface{}{
-		"id":       filename,
-		"filename": filename,
-		"size":     header.Size,
-		"type":     header.Header.Get("Content-Type"),
-		"lines":    len(documents),
-		"chars":    len(documents[0].Content),
+		"id":               filename,
+		"filename":         filename,
+		"size":             header.Size,
+		"type":             header.Header.Get("Content-Type"),
+		"lines":            totalLines,
+		"chars":            totalChars,
+		"whitespace_chars": whitespaceChars,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -277,11 +296,39 @@ func (s *Server) handleListDocuments(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
+			// Load document to calculate statistics
+			filePath := filepath.Join(s.uploadDir, file.Name())
+			docLoader := loader.NewLoader(s.config.Input.FileType)
+			loadedDocs, err := docLoader.LoadDocuments(filePath)
+
+			var totalLines, totalChars, whitespaceChars int
+			if err == nil && len(loadedDocs) > 0 {
+				// Calculate statistics
+				for _, doc := range loadedDocs {
+					// Count lines in this document
+					lines := strings.Count(doc.Content, "\n") + 1
+					totalLines += lines
+
+					// Count characters
+					totalChars += len(doc.Content)
+
+					// Count whitespace characters
+					for _, char := range doc.Content {
+						if char == ' ' || char == '\t' || char == '\n' || char == '\r' {
+							whitespaceChars++
+						}
+					}
+				}
+			}
+
 			documents = append(documents, map[string]interface{}{
-				"id":       strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())),
-				"filename": file.Name(),
-				"size":     info.Size(),
-				"modified": info.ModTime(),
+				"id":               strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())),
+				"filename":         file.Name(),
+				"size":             info.Size(),
+				"modified":         info.ModTime(),
+				"lines":            totalLines,
+				"chars":            totalChars,
+				"whitespace_chars": whitespaceChars,
 			})
 		}
 	}

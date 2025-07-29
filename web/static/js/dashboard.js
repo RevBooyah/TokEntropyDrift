@@ -320,7 +320,7 @@ class Dashboard {
                     <div>
                         <div class="document-name">${doc.filename}</div>
                         <div class="document-meta">
-                            ${this.formatFileSize(doc.size)} • ${doc.lines || 'N/A'} lines • ${doc.chars || 'N/A'} chars
+                            ${this.formatFileSize(doc.size)} • ${doc.lines || 'N/A'} lines • ${doc.chars || 'N/A'} chars${doc.whitespace_chars ? ` • ${doc.whitespace_chars} whitespace` : ''}
                         </div>
                     </div>
                     <div class="document-actions">
@@ -407,7 +407,17 @@ class Dashboard {
                     <div class="result-title">Analysis Results</div>
                     <small class="text-muted">${new Date(analysis.timestamp).toLocaleString()}</small>
                 </div>
-                <div class="result-metrics">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Tokenizer</th>
+                                <th>Tokens</th>
+                                <th>Entropy</th>
+                                <th>Compression</th>
+                            </tr>
+                        </thead>
+                        <tbody>
         `;
 
         analysis.results.forEach(result => {
@@ -419,26 +429,18 @@ class Dashboard {
                 result.metrics["compression_compression_ratio"].value : 0;
             
             html += `
-                <div class="metric-item">
-                    <div class="metric-value">${result.tokenizer_name || 'Unknown'}</div>
-                    <div class="metric-label">Tokenizer</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-value">${tokenCount}</div>
-                    <div class="metric-label">Tokens</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-value">${entropy.toFixed(3)}</div>
-                    <div class="metric-label">Entropy</div>
-                </div>
-                <div class="metric-item">
-                    <div class="metric-value">${compressionRatio.toFixed(3)}</div>
-                    <div class="metric-label">Compression</div>
-                </div>
+                <tr>
+                    <td><strong>${result.tokenizer_name || 'Unknown'}</strong></td>
+                    <td>${tokenCount}</td>
+                    <td>${entropy.toFixed(3)}</td>
+                    <td>${compressionRatio.toFixed(3)}</td>
+                </tr>
             `;
         });
 
         html += `
+                        </tbody>
+                    </table>
                 </div>
                 <div class="mt-3">
                     <button class="btn btn-sm btn-outline-primary" onclick="dashboard.showDetailedResults()">
@@ -726,4 +728,4 @@ class Dashboard {
 let dashboard;
 document.addEventListener('DOMContentLoaded', () => {
     dashboard = new Dashboard();
-}); 
+});

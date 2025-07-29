@@ -254,6 +254,7 @@ body {
     color: var(--primary-color);
 }
 
+/* OLD GRID LAYOUT - REMOVED IN FAVOR OF DATATABLE
 .analysis-result .result-metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -279,6 +280,7 @@ body {
     color: #6c757d;
     text-transform: uppercase;
 }
+*/
 
 /* Visualization Container Styles */
 .visualization-container {
@@ -382,9 +384,11 @@ body {
         margin-bottom: 0.5rem;
     }
     
+    /* OLD GRID LAYOUT - REMOVED
     .analysis-result .result-metrics {
         grid-template-columns: repeat(2, 1fr);
     }
+    */
     
     .document-item .document-info {
         flex-direction: column;
@@ -544,4 +548,82 @@ body {
 
 .fullscreen-view .fullscreen-content {
     height: calc(100vh - 100px);
+} 
+
+/* Analysis Results Table Styles */
+.analysis-result .table-responsive {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.analysis-result .table {
+    font-size: 0.875rem;
+    margin-bottom: 0;
+}
+
+.analysis-result .table thead th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    padding: 0.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.analysis-result .table tbody td {
+    padding: 0.5rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.analysis-result .table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.analysis-result .table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Compact table styling */
+.analysis-result .table-sm td,
+.analysis-result .table-sm th {
+    padding: 0.375rem 0.5rem;
+}
+
+/* Tokenizer name styling */
+.analysis-result .table tbody td:first-child {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+/* Numeric values styling */
+.analysis-result .table tbody td:nth-child(2),
+.analysis-result .table tbody td:nth-child(3),
+.analysis-result .table tbody td:nth-child(4) {
+    font-family: 'Courier New', monospace;
+    text-align: right;
+}
+
+/* Responsive adjustments for analysis results */
+@media (max-width: 768px) {
+    .analysis-result .table-responsive {
+        max-height: 200px;
+    }
+    
+    .analysis-result .table {
+        font-size: 0.8rem;
+    }
+    
+    .analysis-result .table thead th {
+        font-size: 0.7rem;
+        padding: 0.375rem 0.25rem;
+    }
+    
+    .analysis-result .table tbody td {
+        padding: 0.375rem 0.25rem;
+    }
 } 

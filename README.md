@@ -21,6 +21,28 @@ This project is designed for:
 * **Prompt engineers** optimizing prompt structure for compression
 * **Tool builders** embedding tokenizer analysis in CI or dashboards
 
+## 🖥️ User Interface
+
+TokEntropyDrift provides an intuitive web-based dashboard for analyzing tokenization behavior:
+
+### Main Dashboard
+![Main Dashboard](images/dashboard.png)
+
+The main dashboard allows you to:
+- Upload and manage text documents
+- View document statistics (lines, characters, whitespace)
+- Run analysis across multiple tokenizers
+- Monitor analysis progress in real-time
+
+### Analysis Results
+![Analysis Results](images/basic_results.png)
+
+The analysis results modal provides:
+- Compact datatable view of tokenizer performance
+- Key metrics including token count, entropy, and compression ratio
+- Easy comparison across different tokenizers
+- Detailed breakdown of analysis results
+
 ## 🎯 Goals
 
 * Provide reproducible entropy and compression metrics per tokenizer
