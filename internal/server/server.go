@@ -65,6 +65,12 @@ func NewServer(cfg *config.Config) *Server {
 		log.Fatalf("Failed to create upload directory: %v", err)
 	}
 
+	// Create visualizations directory
+	vizDir := filepath.Join(cfg.Output.Directory, "visualizations")
+	if err := os.MkdirAll(vizDir, 0755); err != nil {
+		log.Fatalf("Failed to create visualizations directory: %v", err)
+	}
+
 	// Register all available tokenizers with the global registry
 	if err := tokenizers.RegisterAllTokenizers(); err != nil {
 		log.Printf("Warning: Failed to register some tokenizers: %v", err)
@@ -81,7 +87,7 @@ func NewServer(cfg *config.Config) *Server {
 		ImageSize:   cfg.Visualization.ImageSize,
 		FileType:    cfg.Visualization.FileType,
 		Interactive: cfg.Visualization.Interactive,
-		OutputDir:   filepath.Join(cfg.Output.Directory, "visualizations"),
+		OutputDir:   vizDir,
 	})
 
 	server := &Server{
@@ -633,30 +639,69 @@ func (s *Server) handleGenerateHeatmap(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
 	for _, tokenizerID := range req.Tokenizers {
+		log.Printf("Processing tokenizer for heatmap: %s", tokenizerID)
+
 		if !tokenizers.ValidateTokenizerName(tokenizerID) {
+			log.Printf("Invalid tokenizer name: %s", tokenizerID)
 			continue
 		}
 
 		tokenizer, err := s.tokenizerRegistry.Get(tokenizerID)
 		if err != nil {
+			log.Printf("Failed to get tokenizer %s: %v", tokenizerID, err)
 			continue
 		}
 
 		result, err := s.metricsEngine.AnalyzeDocument(ctx, document, tokenizer)
 		if err != nil {
+			log.Printf("Failed to analyze document with tokenizer %s: %v", tokenizerID, err)
 			continue
 		}
+
+		log.Printf("Successfully analyzed document with tokenizer %s: %d tokens", tokenizerID, result.TokenCount)
 
 		yLabels = append(yLabels, tokenizerID)
 		if len(xLabels) == 0 {
 			xLabels = []string{"Token Count", "Entropy", "Compression Ratio"}
 		}
+
+		// Safely extract metric values with defaults - try multiple possible metric names
+		entropyValue := 0.0
+		if entropyMetric, exists := result.Metrics["entropy_shannon"]; exists {
+			entropyValue = entropyMetric.Value
+		} else if entropyMetric, exists := result.Metrics["entropy_global_entropy"]; exists {
+			entropyValue = entropyMetric.Value
+		} else if entropyMetric, exists := result.Metrics["entropy_bigram_entropy"]; exists {
+			entropyValue = entropyMetric.Value
+		}
+
+		compressionValue := 0.0
+		if compressionMetric, exists := result.Metrics["compression_ratio"]; exists {
+			compressionValue = compressionMetric.Value
+		} else if compressionMetric, exists := result.Metrics["compression_compression_ratio"]; exists {
+			compressionValue = compressionMetric.Value
+		} else if compressionMetric, exists := result.Metrics["compression_byte_compression_ratio"]; exists {
+			compressionValue = compressionMetric.Value
+		}
+
+		log.Printf("Tokenizer %s - Tokens: %d, Entropy: %.3f, Compression: %.3f",
+			tokenizerID, result.TokenCount, entropyValue, compressionValue)
+
 		values = append(values, []float64{
 			float64(result.TokenCount),
-			result.Metrics["entropy_shannon"].Value,
-			result.Metrics["compression_ratio"].Value,
+			entropyValue,
+			compressionValue,
 		})
 	}
+
+	// Check if we have any data to visualize
+	if len(values) == 0 {
+		log.Printf("No valid analysis results found for heatmap generation. Requested tokenizers: %v", req.Tokenizers)
+		http.Error(w, "No valid analysis results found for heatmap generation", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Generated heatmap data with %d tokenizers", len(values))
 
 	heatmapData := visualization.HeatmapData{
 		XLabels:    xLabels,
@@ -668,8 +713,16 @@ func (s *Server) handleGenerateHeatmap(w http.ResponseWriter, r *http.Request) {
 
 	viz, err := s.vizEngine.GenerateHeatmap(heatmapData, req.Type)
 	if err != nil {
+		log.Printf("Failed to generate heatmap: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to generate heatmap: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Convert filepath to web-accessible URL
+	if viz.Filepath != "" {
+		// Extract just the filename from the full path
+		filename := filepath.Base(viz.Filepath)
+		viz.Filepath = "/visualizations/" + filename
 	}
 
 	w.Header().Set("Content-Type", "application/json")

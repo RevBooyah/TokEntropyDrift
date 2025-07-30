@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -104,9 +106,15 @@ except Exception as e:
     sys.exit(1)
 `, g.modelName, g.Name(), g.modelName)
 
-	// Execute Python script
+	// Execute Python script with virtual environment
 	cmd := exec.CommandContext(ctx, g.pythonPath, "-c", script)
 	cmd.Stdin = strings.NewReader(text)
+
+	// Set virtual environment variables
+	cmd.Env = append(os.Environ(),
+		"VIRTUAL_ENV="+filepath.Join(".", "venv"),
+		"PATH="+filepath.Join(".", "venv", "bin")+":"+os.Getenv("PATH"),
+	)
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -192,6 +200,13 @@ except Exception as e:
 `, g.modelName)
 
 	cmd := exec.Command(g.pythonPath, "-c", script)
+
+	// Set virtual environment variables
+	cmd.Env = append(os.Environ(),
+		"VIRTUAL_ENV="+filepath.Join(".", "venv"),
+		"PATH="+filepath.Join(".", "venv", "bin")+":"+os.Getenv("PATH"),
+	)
+
 	output, err := cmd.Output()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get vocab size: %w", err)

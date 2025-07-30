@@ -91,7 +91,7 @@ output:
 visualization:
   theme: "light"
   image_size: "medium"
-  file_type: "svg"
+  file_type: "html"
   interactive: true
 
 server:

@@ -70,7 +70,7 @@ class Dashboard {
 
         // Visualization buttons
         document.getElementById('generateHeatmap').addEventListener('click', () => {
-            this.generateVisualization('heatmap');
+            this.generateVisualization('entropy');
         });
 
         document.getElementById('generateDrift').addEventListener('click', () => {
@@ -267,14 +267,27 @@ class Dashboard {
         this.showLoading(true);
 
         try {
-            const response = await fetch(`/api/v1/visualizations/${type}`, {
+            // Use the heatmap endpoint for all heatmap types
+            const endpoint = type === 'entropy' || type === 'compression' || type === 'token_count' || type === 'reuse' 
+                ? '/api/v1/visualizations/heatmap' 
+                : `/api/v1/visualizations/${type}`;
+            
+            // Use currently selected tokenizers instead of failed analysis results
+            const selectedTokenizers = this.getSelectedTokenizers();
+            if (selectedTokenizers.length === 0) {
+                this.showAlert('Please select at least one tokenizer', 'warning');
+                this.showLoading(false);
+                return;
+            }
+                
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     document_id: this.currentAnalysis.document_id,
-                    tokenizers: this.currentAnalysis.results.map(r => r.tokenizer_id),
+                    tokenizers: selectedTokenizers,
                     type: type
                 })
             });
