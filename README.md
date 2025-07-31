@@ -212,6 +212,86 @@ Docs: [`testing.md`](./docs/testing.md), [`benchmarking.md`](./docs/benchmarking
 
 ---
 
+## 📐 Token Analysis Formulas
+
+These formulas define the core metrics computed by TokEntropyDrift:
+
+### 1. Token Entropy
+
+Measures the average uncertainty or information content per token.
+
+\[
+H = -\sum_{i=1}^{n} p_i \cdot \log_2(p_i)
+\]
+
+Where:
+- \( H \): entropy of the token distribution
+- \( p_i \): probability of token \( i \), computed from frequency over the sequence
+
+---
+
+### 2. Normalized Entropy
+
+Scales entropy relative to the number of unique tokens (vocabulary size):
+
+\[
+H_{\text{norm}} = \frac{H}{\log_2(n)}
+\]
+
+Where:
+- \( H_{\text{norm}} \in [0, 1] \)
+- \( n \): number of unique tokens in the sample
+
+---
+
+### 3. Compression Ratio
+
+Quantifies how efficiently the tokenizer segments text:
+
+\[
+\text{Compression Ratio} = \frac{\text{Character Count}}{\text{Token Count}}
+\]
+
+Higher values imply more aggressive token compression.
+
+---
+
+### 4. Token Drift (Pairwise Tokenization Distance)
+
+Compares how two tokenizers segment the same text:
+
+\[
+\text{Drift}(T_1, T_2) = 1 - \frac{2 \cdot |T_1 \cap T_2|}{|T_1| + |T_2|}
+\]
+
+Where:
+- \( T_1, T_2 \): token sets or sequences from two tokenizers
+- \( |T_1 \cap T_2| \): overlap in token content
+
+---
+
+### 5. Token Reuse Rate
+
+Indicates how often tokens are reused within a sample:
+
+\[
+\text{Reuse Rate} = \frac{\text{Count of Reused Tokens}}{\text{Total Tokens}}
+\]
+
+---
+
+### 6. Rolling Entropy
+
+Computes localized entropy over a sliding window \( w \):
+
+\[
+H_w = -\sum_{i=1}^{w} p_i \cdot \log_2(p_i)
+\]
+
+Helps visualize entropy variation across the corpus.
+
+---
+
 ## 🧠 Documentation Index
 
 * [`analysis.md`](./docs/analysis.md): Metrics + entropy calculations
