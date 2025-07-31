@@ -224,6 +224,8 @@ Measures the average uncertainty or information content per token.
 H = -\sum_{i=1}^{n} p_i \cdot \log_2(p_i)
 \]
 
+$$H = -\sum_{i=1}^{n} p_i \cdot \log_2(p_i)$$
+
 Where:
 - \( H \): entropy of the token distribution
 - \( p_i \): probability of token \( i \), computed from frequency over the sequence
